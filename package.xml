@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>extended_kalman_filter</name>
+  <name>ford_mot</name>
   <version>1.0.0</version>
   <description>The extended_kalman_filter package</description>
 

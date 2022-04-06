@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(extended_kalman_filter)
+project(ford_mot)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -38,7 +38,7 @@ include_directories(
 #target_link_libraries(ext_kf
 #  ${catkin_LIBRARIES}
 # #)
-add_executable(KF src/KF.cpp)
+add_executable(FordKF src/KF.cpp)
 
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
@@ -46,7 +46,7 @@ add_library(${PROJECT_NAME}
   src/tracking.cpp
 )
 target_link_libraries(
-  KF
+  FordKF
   ${PROJECT_NAME}
   ${catkin_LIBRARIES}
 )
