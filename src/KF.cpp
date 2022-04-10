@@ -44,13 +44,13 @@ class SensorClass
     void radarCallback(const std_msgs::Float32MultiArray::ConstPtr& msg)
     {
         sensorType = "RADAR";
-        if(true) ROS_INFO("Radar call back");   
+        if(DEBUG) ROS_INFO("Radar call back");   
 
         for(int col=0;col<10;col++)
-        {
-            
+        {            
             for(int row=0; row<14; row++)
             {
+                // If Obj Id == 0 continue
                 if(msg->data[col+20] == 0) continue;
 
                 if(DEBUG)

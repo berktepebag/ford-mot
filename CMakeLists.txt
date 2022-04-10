@@ -38,7 +38,7 @@ include_directories(
 #target_link_libraries(ext_kf
 #  ${catkin_LIBRARIES}
 # #)
-add_executable(FordKF src/KF.cpp)
+add_executable(main src/main.cpp)
 
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
@@ -46,7 +46,7 @@ add_library(${PROJECT_NAME}
   src/tracking.cpp
 )
 target_link_libraries(
-  FordKF
+  main
   ${PROJECT_NAME}
   ${catkin_LIBRARIES}
 )

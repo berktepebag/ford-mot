@@ -50,7 +50,7 @@ Tracking::Tracking()
 
 Tracking::~Tracking(){}
 
-void Tracking::ProcessMeasurement(const std::string sensorType, const Eigen::VectorXd measurements)
+std::pair<Eigen::VectorXd, Eigen::MatrixXd> Tracking::ProcessMeasurement(const std::string sensorType, const Eigen::VectorXd measurements)
 {
     // Set sensor type
     ekf_.sensorType_ = sensorType;
@@ -65,7 +65,7 @@ void Tracking::ProcessMeasurement(const std::string sensorType, const Eigen::Vec
         previous_timestamp_ = ros::Time::now();
 
         is_initialized_ = true;
-        return;
+        return {ekf_.x_,ekf_.P_};
     }
     // time between last sensor reading and current reading
     // float dt = (measurement_package.timestamp_ - previous_timestamp_) / 1000000.0;
@@ -97,11 +97,13 @@ void Tracking::ProcessMeasurement(const std::string sensorType, const Eigen::Vec
 
     if(DEBUG) ROS_INFO("!!!!!!!!!!!!!!!!!! \n Predicting...");
     ekf_.Predict();
-    std::cout << "x_= " << ekf_.x_ << std::endl;
-    std::cout << "P_= " << ekf_.P_ << std::endl;
-    if(DEBUG) ROS_INFO("Predict Complete...");
+    if(DEBUG)
+    {
+        std::cout << "x_= " << ekf_.x_ << std::endl;
+        std::cout << "P_= " << ekf_.P_ << std::endl;
+        ROS_INFO("Predict Complete...");
+    }
 
-    
     if(sensorType == "RADAR")
     {
         if(DEBUG) ROS_INFO("Setting RADAR");
@@ -111,19 +113,21 @@ void Tracking::ProcessMeasurement(const std::string sensorType, const Eigen::Vec
         ekf_.R_ <<  R_Radar_range_lon*R_Radar_range_lon, 0, 0, 0,
                     0, R_Radar_range_lat*R_Radar_range_lat, 0, 0,
                     0, 0, R_Radar_vel_lon*R_Radar_vel_lon, 0,
-                    0, 0, 0, R_Radar_vel_lat*R_Radar_vel_lat;
-                    
+                    0, 0, 0, R_Radar_vel_lat*R_Radar_vel_lat;                    
     }    
     
     // ROS_INFO("Updating...");
     ekf_.Update(measurements);
 
-    ROS_INFO("***********");
-    std::cout << "x_= " << ekf_.x_ << std::endl;
-    // std::cout << "P_= " << ekf_.P_ << std::endl;
+    // ROS_INFO("***********");
+    // std::cout << "x_= " << ekf_.x_[0] << std::endl;
+    // std::cout << "P_= " << ekf_.P_.coeff(0,0) << std::endl;
 
     // PublishOdom();
-    PublishPathMessage();
+    // PublishPathMessage();
+
+    // ekf_.x_, ekf_.P_;
+    return {ekf_.x_, ekf_.P_};
 }
 
 void Tracking::PublishPathMessage()
