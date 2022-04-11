@@ -15,8 +15,7 @@ class Utilities
 
     private:
 
-        Eigen::MatrixXd mah_measurements;
-        Eigen::VectorXd centroid; // mean of measurements
+
 
 
 

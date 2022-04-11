@@ -158,7 +158,7 @@ class SensorClass
         // For tentative and comfirmed tracks run KF, predict next Predicted Points 
 
 
-
+        predictedPoints.empty();
 
 
         

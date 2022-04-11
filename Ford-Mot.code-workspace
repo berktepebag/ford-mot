@@ -89,7 +89,8 @@
 			"random": "cpp",
 			"set": "cpp",
 			"string": "cpp",
-			"cholesky": "cpp"
+			"cholesky": "cpp",
+			"*.expression": "cpp"
 		},
 		"python.autoComplete.extraPaths": [
 			"/opt/ros/melodic/lib/python2.7/dist-packages"
