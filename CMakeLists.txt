@@ -32,8 +32,6 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-
-#add_executable(ext_kf src/main.cpp)
 ## Specify libraries to link a library or executable target against
 #target_link_libraries(ext_kf
 #  ${catkin_LIBRARIES}
@@ -44,6 +42,7 @@ add_executable(main src/main.cpp)
 add_library(${PROJECT_NAME}
   src/kalman_filter.cpp
   src/tracking.cpp
+  src/utilities.cpp
 )
 target_link_libraries(
   main

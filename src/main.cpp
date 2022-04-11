@@ -12,6 +12,8 @@
 
 #include <vector>
 
+#include "ford_mot/utilities.h"
+
 
 class SensorClass
 {
@@ -28,6 +30,7 @@ class SensorClass
 
         std::string sensorType;
         bool DEBUG = false;
+
         // Predicted Points will be created when a track exits (x_, P_)
         std::vector<std::pair<Eigen::VectorXd, Eigen::MatrixXd>> predictedPoints;
         // Tentative tracks will exists until either deleted or converted into comfirmedTrack
@@ -36,7 +39,7 @@ class SensorClass
         // Global Counter, counts steps since tracker initialized
         int GLOBAL_COUNTER = 0;
 
-
+        Utilities utilities;
 
     public:
         SensorClass()
@@ -45,12 +48,14 @@ class SensorClass
         
             currentTime = ros::Time::now();
             prevTime = currentTime;
+
         }
 
         ~SensorClass(){}
 
     void radarCallback(const std_msgs::Float32MultiArray::ConstPtr& msg)
     {
+        std::vector<Eigen::VectorXd> measurements;
         GLOBAL_COUNTER++;
 
         // ROS_INFO("Beginning Pred.Point.Size: %d", predictedPoints.size());
@@ -96,8 +101,10 @@ class SensorClass
                     msg->data[col+50],
                     msg->data[col+60];
 
+                    measurements.push_back(radarMeas);
+
                     auto [x_, p_] = tracking.ProcessMeasurement(sensorType, radarMeas);   
-                   std::cout << "RESULTS ARE COMING *******" << x_ << "\n" << p_ << std::endl;
+                    // std::cout << "RESULTS ARE COMING *******" << x_ << "\n" << p_ << std::endl;
 
                     predictedPoints.push_back(tracking.ProcessMeasurement(sensorType, radarMeas) );
                     // ROS_INFO("Adding Pred.Point.Size: %d", predictedPoints.size());
@@ -105,20 +112,44 @@ class SensorClass
             }
         }
 
-        ROS_INFO("End Pred.Point.Size: %d", predictedPoints.size());
         // for (auto &pp:predictedPoints){std::cout << "*** x_:" << pp.first << " \n";}
 
         // ROS_INFO("Global Counter: %d", GLOBAL_COUNTER);
 
-        //JPDAF Starts Here
+        // *******JPDAF Starts Here
 
         // Get Predicted Points from previous step
+        // ROS_INFO("End Pred.Point.Size: %d", predictedPoints.size());
 
         // Get current Observations
+        // ROS_INFO("Measurements.Size: %d", measurements.size());
+        for (size_t i = 0; i < predictedPoints.size(); i++)
+        {
+            // std::cout << "predictedPoints[i].first " << predictedPoints[i].first[0] << std::endl;
+            float mu_x = predictedPoints[i].first[0];
 
-        // For each Predicted Point Calculate Mahalanobis Distance dij2
+            utilities.CalculateMahalanobisDistance(measurements, predictedPoints);
+
+
+            // for (size_t j = 0; j < measurements.size(); j++)
+            // {
+            //     // Eigen::VectorXd dij_y = measurements[j][0]
+            //     // std::cout << "measurements x: " << measurements[j][0] << std::endl;
+
+
+            //     // Eigen::VectorXd dij_y = measurements[j][0] - mu_x;
+
+            // }
+            
+        }
+        
+        // ROS_INFO("Predicted points P sigmax: %f sigmay %f", )
+
+        // float dij2 = 
 
         // Create Hypothesis 
+        
+        // For each Predicted Point Calculate Mahalanobis Distance dij2
 
         // Pick Highest Prob. "Pred. Point - Observation" Pair
 
