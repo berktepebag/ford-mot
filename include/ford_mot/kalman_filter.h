@@ -40,7 +40,6 @@ class ExtKalmanFilter{
     // measurement covariance matrix
     Eigen::MatrixXd R_;
 
-
 };
 
 #endif 

@@ -8,6 +8,8 @@
 
 #include <ros/ros.h>
 #include <math.h>
+#include <vector>
+
 
 bool DEBUG = false;
 
@@ -38,7 +40,7 @@ Tracking::Tracking()
     if (!nh.getParam ("ekf/Qv_ax", Qv_ax)){ Qv_ax = 0.1;}  //Eigen::EigenMultivariateNormal<float> normX_solver1(mean,covar);     
     if (!nh.getParam ("ekf/Qv_ay", Qv_ay)){ Qv_ay = 0.1;}       
 
-    // Radar Measurement Covariance Matrix
+    // Radar meas Covariance Matrix
     if (!nh.getParam ("ekf/R_Radar_range_lon", R_Radar_range_lon)){ R_Radar_range_lon = 0.4;} //m   
     if (!nh.getParam ("ekf/R_Radar_range_lon", R_Radar_range_lat)){ R_Radar_range_lat = 0.4;} //m   
     if (!nh.getParam ("ekf/R_Radar_vel_lon", R_Radar_vel_lon)){ R_Radar_vel_lon = 0.027;} //m/s
@@ -50,7 +52,7 @@ Tracking::Tracking()
 
 Tracking::~Tracking(){}
 
-std::pair<Eigen::VectorXd, Eigen::MatrixXd> Tracking::ProcessMeasurement(const std::string sensorType, const Eigen::VectorXd measurements)
+std::pair<Eigen::VectorXd, Eigen::MatrixXd> Tracking::ProcessMeasurement(const std::string sensorType, const std::vector<Eigen::VectorXd> measurements)
 {
     // Set sensor type
     ekf_.sensorType_ = sensorType;
@@ -115,9 +117,30 @@ std::pair<Eigen::VectorXd, Eigen::MatrixXd> Tracking::ProcessMeasurement(const s
                     0, 0, R_Radar_vel_lon*R_Radar_vel_lon, 0,
                     0, 0, 0, R_Radar_vel_lat*R_Radar_vel_lat;                    
     }    
+
+    // // measurement residual covariance matrix
+    Eigen::MatrixXd S_ = Eigen::MatrixXd(4,4);
+    S_ = ekf_.H_ * ekf_.P_ * ekf_.H_.transpose() + ekf_.R_;    
+
+    // std::cout << "S_: " << S_ << std::endl;
+
+    // std::cout << "measurements size: " << measurements.size();
+
+    for (size_t meas = 0; meas < measurements.size(); meas++)
+    {
+        Eigen::MatrixXd vj = measurements[meas]-(ekf_.H_* ekf_.x_);
+        float dij2 = (vj.transpose() * S_.inverse() * vj).value();
+        // std::cout << "dij2: " << dij2 << std::endl;
+        
+    }
     
-    // ROS_INFO("Updating...");
-    ekf_.Update(measurements);
+
+
+
+    // Bütün hipotezlerin hesaplanması ve track'e atanacak olan x_'in (x,y noktaları) bulunması. P_, bize predicted point'in bir sonraki KF'de kullanılması için gereken covariance.
+    
+    // Update'in içine gij den en yüksek ihtimalli olan gidecek
+    // ekf_.Update(measurements);
 
     // ROS_INFO("***********");
     // std::cout << "x_= " << ekf_.x_[0] << std::endl;

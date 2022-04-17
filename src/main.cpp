@@ -14,6 +14,59 @@
 
 #include "ford_mot/utilities.h"
 
+class Track
+{
+    public:
+        Track(int &TRACK_ID)
+        {
+            setID(TRACK_ID);
+            std::cout << "Track ID: " << TRACK_ID << " established as Comfirmed: " << std::boolalpha << comfirmed << std::endl;            
+        }
+        ~Track(){}
+
+        void tentativeToComfirmed()
+        {
+            comfirmed = true;
+        }
+
+        void setID(int &TRACK_ID)
+        {
+            ID = TRACK_ID;
+            TRACK_ID++;
+        }
+        int getID(){return ID;}
+
+        bool getStatus(){return comfirmed;}
+
+        // Assign Observation point to the track points list
+
+        auto getPredictedPointXandP(std::string sensorType, std::vector<Eigen::VectorXd> measurements)
+        {
+            return trackTracking.ProcessMeasurement(sensorType, measurements);
+        }
+        
+
+
+    private:
+        Tracking trackTracking;
+
+        bool comfirmed = false;
+        int ID = 0;
+
+        // Each time a observation is assigned increase by one. If reaches threshold, call tentativeToComfirmed()
+        int tentToComfCount = 0;
+        int comfToDelCount = 0;
+
+        // Hold x and y points to be drawen in RVIZ
+        std::vector<std::pair<float, float>> trackPointsList;
+
+        // state vector at k-1
+        Eigen::VectorXd x_;
+        // state covariance matrix
+        Eigen::MatrixXd P_;
+
+
+};
 
 class SensorClass
 {
@@ -34,11 +87,13 @@ class SensorClass
         // Predicted Points will be created when a track exits (x_, P_)
         std::vector<std::pair<Eigen::VectorXd, Eigen::MatrixXd>> predictedPoints;
         // Tentative tracks will exists until either deleted or converted into comfirmedTrack
-        std::vector<std::pair<Eigen::VectorXd, Eigen::MatrixXd>> tracks;
+        std::vector<Track> tracksList;
 
         // Global Counter, counts steps since tracker initialized
-        int GLOBAL_COUNTER = 0;
-
+        int GLOBAL_STEP_COUNTER = 0;
+        // Track ID's for track maintenance
+        int TRACK_ID = 0;
+        
         Utilities utilities;
 
     public:
@@ -56,65 +111,79 @@ class SensorClass
     void radarCallback(const std_msgs::Float32MultiArray::ConstPtr& msg)
     {
         std::vector<Eigen::VectorXd> measurements;
-        GLOBAL_COUNTER++;
+        GLOBAL_STEP_COUNTER++;
 
         // ROS_INFO("Beginning Pred.Point.Size: %d", predictedPoints.size());
-
         sensorType = "RADAR";
         if(DEBUG) ROS_INFO("Radar call back");   
 
-        // If there is no pred. points yet, we first predict and add them to the tentative track list
-        if(true){
-        // if(predictedPoints.size() == 0){
+        for(int col=0;col<10;col++)
+        {           
+            if(msg->data[col+20] == 0) continue;
 
-            for(int col=0;col<10;col++)
-            {            
-                // If Obj Id == 0 continue
-                if(msg->data[col+20] == 0) continue;
-
-                // for(int row=0; row<14; row++)
-                // {
-                    if(DEBUG)
-                    {
-                        ROS_INFO("Obj: %d \n S_Type: %.0f \n S_No: %.0f \n Obj_Id: %.0f \n  Lon_Dist: %f m \n  Lat_Dist: %f m \n  Lon_Vel: %f m/s \n  Lat_vel: %f m/s \n  w: %f \n  h: %f \n d: %f \n  Time: %.0f:%.0f:%.0f:%.0f ", 
-                        col, 
-                        msg->data[col],
-                        msg->data[col+10],
-                        msg->data[col+20],
-                        msg->data[col+30],
-                        msg->data[col+40],
-                        msg->data[col+50],
-                        msg->data[col+60],
-                        msg->data[col+70],
-                        msg->data[col+80],
-                        msg->data[col+90],
-                        msg->data[col+100],
-                        msg->data[col+110],
-                        msg->data[col+120],
-                        msg->data[col+130]
-                        );
-                    }
-
-                    radarMeas << 
-                    msg->data[col+30],
-                    msg->data[col+40],
-                    msg->data[col+50],
-                    msg->data[col+60];
-
-                    measurements.push_back(radarMeas);
-
-                    auto [x_, p_] = tracking.ProcessMeasurement(sensorType, radarMeas);   
-                    // std::cout << "RESULTS ARE COMING *******" << x_ << "\n" << p_ << std::endl;
-
-                    predictedPoints.push_back(tracking.ProcessMeasurement(sensorType, radarMeas) );
-                    // ROS_INFO("Adding Pred.Point.Size: %d", predictedPoints.size());
-                // }            
+            if(DEBUG)
+            {
+                ROS_INFO("Obj: %d \n S_Type: %.0f \n S_No: %.0f \n Obj_Id: %.0f \n  Lon_Dist: %f m \n  Lat_Dist: %f m \n  Lon_Vel: %f m/s \n  Lat_vel: %f m/s \n  w: %f \n  h: %f \n d: %f \n  Time: %.0f:%.0f:%.0f:%.0f ", 
+                col, 
+                msg->data[col],
+                msg->data[col+10],
+                msg->data[col+20],
+                msg->data[col+30],
+                msg->data[col+40],
+                msg->data[col+50],
+                msg->data[col+60],
+                msg->data[col+70],
+                msg->data[col+80],
+                msg->data[col+90],
+                msg->data[col+100],
+                msg->data[col+110],
+                msg->data[col+120],
+                msg->data[col+130]
+                );
             }
+
+            radarMeas << 
+            msg->data[col+30],
+            msg->data[col+40],
+            msg->data[col+50],
+            msg->data[col+60];
+
+            measurements.push_back(radarMeas);
         }
+
+        // If there is no track in tracksList
+        if(tracksList.size() == 0){
+        
+            // std::cout << "meas size: " << measurements.size() << std::endl;
+            auto [x_, p_] = tracking.ProcessMeasurement(sensorType, measurements);
+            // std::cout << "x_: " << x_ << " p_: " << p_ << std::endl;
+            predictedPoints.push_back({x_, p_});
+            // Add them as "tentavi tracks" to tracksList
+            tracksList.emplace_back(Track(TRACK_ID));
+        }
+
+        for(auto track : tracksList)
+        {
+            std::cout << "Track ID: " << track.getID() << " Status: " << std::boolalpha << track.getStatus() << std::endl;
+            std::cout << "Predicting Points using KF \n";    
+
+            auto [x_, p_] = track.getPredictedPointXandP(sensorType, measurements); 
+            std::cout << "Predicted Points x_: " << x_ << " p_: " << p_ << std::endl;
+
+        }
+
+
+
+        // ROS_INFO("GLOBAL_STEP_COUNTER: %d", GLOBAL_STEP_COUNTER);    
+        // ROS_INFO("Predicted Points Size: %d", predictedPoints.size());    
+        
+
+
+
 
         // for (auto &pp:predictedPoints){std::cout << "*** x_:" << pp.first << " \n";}
 
-        // ROS_INFO("Global Counter: %d", GLOBAL_COUNTER);
+        // ROS_INFO("Global Counter: %d", GLOBAL_STEP_COUNTER);
 
         // *******JPDAF Starts Here
 
@@ -123,29 +192,30 @@ class SensorClass
 
         // Get current Observations
         // ROS_INFO("Measurements.Size: %d", measurements.size());
-        for (size_t i = 0; i < predictedPoints.size(); i++)
-        {
-            // std::cout << "predictedPoints[i].first " << predictedPoints[i].first[0] << std::endl;
-            float mu_x = predictedPoints[i].first[0];
+        // for (size_t i = 0; i < predictedPoints.size(); i++)
+        // {
+        //     // std::cout << "predictedPoints[i].first " << predictedPoints[i].first[0] << std::endl;
+        //     float mu_x = predictedPoints[i].first[0];
 
-            utilities.CalculateMahalanobisDistance(measurements, predictedPoints);
-
-
-            // for (size_t j = 0; j < measurements.size(); j++)
-            // {
-            //     // Eigen::VectorXd dij_y = measurements[j][0]
-            //     // std::cout << "measurements x: " << measurements[j][0] << std::endl;
+        //     utilities.CalculateMahalanobisDistance(measurements, predictedPoints);
 
 
-            //     // Eigen::VectorXd dij_y = measurements[j][0] - mu_x;
+        //     // for (size_t j = 0; j < measurements.size(); j++)
+        //     // {
+        //     //     // Eigen::VectorXd dij_y = measurements[j][0]
+        //     //     // std::cout << "measurements x: " << measurements[j][0] << std::endl;
 
-            // }
+
+        //     //     // Eigen::VectorXd dij_y = measurements[j][0] - mu_x;
+
+        //     // }
             
-        }
+        // }
         
         // ROS_INFO("Predicted points P sigmax: %f sigmay %f", )
 
         // float dij2 = 
+
 
         // Create Hypothesis 
         
