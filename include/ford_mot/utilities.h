@@ -4,6 +4,7 @@
 #include "eigen3/Eigen/Dense"
 #include <vector>
 #include <set>
+#include <bits/stdc++.h>
 
 class Utilities
 {
@@ -17,7 +18,7 @@ class Utilities
         void findHypothesis(std::vector<std::vector<float>> gij);
 
         std::vector<std::set<int>> combinations(std::vector<std::vector<float>> gijList);
-        std::vector<std::set<int>> merge(std::vector<std::set<int>> combinations, std::vector<float> trackObservationList);
+        std::vector<std::unordered_set<int>> merge(std::vector<std::unordered_set<int>> combinations, std::vector<float> trackObservationList);
 
 
     private:

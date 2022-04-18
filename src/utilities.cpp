@@ -108,58 +108,64 @@ void Utilities::findHypothesis(std::vector<std::vector<float>> gijList)
 
 std::vector<std::set<int>> Utilities::combinations(std::vector<std::vector<float>> gijList) 
 {
-    // gij list'in size() i track adedini
-    // track size()'i observation adedini
+    // std::vector<std::vector<float>> gijList {{1,2,3},{1,2,3},{1,2,3}};//,{6,7,8}};
 
-    // Testing
-    // std::vector<std::vector<float>> gijList {{0,1,2},{0,1,2,3,4,5},{0,3,4,5}};
-    // gijList = gijList;
-    // Testing
 
-    std::vector<std::set<int>> combinationsList;
-    std::set<int> observationSet;
+    int nTracks = gijList.size();
+    int nObservations = gijList[0].size();
 
-    // observationSet.insert(0);
-    // From first track, we are creating a vector of sets with each observation
-    for (int obs = 0; obs < gijList[0].size(); obs++)
+    std::vector<float> listObs;
+    for(int i=1; i<nObservations+1; i++)
     {
-        observationSet.insert(obs); // Since 0 observation is not included we should increase obs by one and zero observation as 
-        combinationsList.push_back(observationSet);
-    }  
-
-    // Add rest of the tracks' observations to the combinationsList recursively
-    for (size_t track = 1; track < gijList.size(); track++)
-    {
-        combinationsList = merge(combinationsList, gijList[track]);
+        // std::cout << "i: " << i << "\n";
+        listObs.push_back(i);
     }
 
-    // Return the resulting Hypothesis List
-    for (size_t comb = 0; comb < combinationsList.size(); comb++)
+    std::cout << "nTracks: " << nTracks << " nObservations: " << nObservations << "\n"; // 1,2
+
+    std::vector<std::unordered_set<int>> combinationsList;
+    std::vector<int> observationSet;
+
+    for(int i=1; i<nObservations+1; i++)
     {
-        if(gijList[0].size() == combinationsList[comb].size())
-        {
+        combinationsList.push_back(std::unordered_set<int> {i});
+    }
+
+    for (size_t track = 1; track < nTracks; track++)
+    {        
+        combinationsList = merge(combinationsList, listObs);
+    }
+
+    std::cout << "\n*************\n";
+   // // Return the resulting Hypothesis List
+    for (int comb = 0; comb < combinationsList.size(); comb++)
+    {
+        if(combinationsList[comb].size() == gijList.size())
+        {            
             for(auto x : combinationsList[comb])
             {
-
                 std::cout << x << ", ";
             }
-        }
-        std::cout << "\n *****" << std::endl;
-    }   
+            std::cout << "\n----------\n";
+        }        
+    }
+    std::cout << "\n*************\n";
+
+    
 }
 
-std::vector<std::set<int>> Utilities::merge(std::vector<std::set<int>> combinations, std::vector<float> trackObservationList)
+std::vector<std::unordered_set<int>> Utilities::merge(std::vector<std::unordered_set<int>> combinations, std::vector<float> trackObservationList)
 {
-    std::vector<std::set<int>> retVec;
+    std::vector<std::unordered_set<int>> retVec;
     for(auto combination : combinations)
-    {
-        for (size_t obs = 0; obs < trackObservationList.size(); obs++)
+    {        
+        for (auto obs : trackObservationList)
         {
-            std::set<int> temp = combination;
+            std::unordered_set<int> temp = combination;
             temp.insert(obs);
             retVec.push_back(temp);            
         }        
     }
-
+   
     return retVec;
 }
