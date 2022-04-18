@@ -3,6 +3,7 @@
 
 #include "eigen3/Eigen/Dense"
 #include <vector>
+#include <set>
 
 class Utilities
 {
@@ -11,7 +12,13 @@ class Utilities
         Utilities();
         virtual ~Utilities();
 
-        float CalculateMahalanobisDistance(std::vector<Eigen::VectorXd> measurements, std::vector<std::pair<Eigen::VectorXd, Eigen::MatrixXd>> predictedPoints);
+        float calculateMahalanobisDistance(std::vector<Eigen::VectorXd> measurements, std::vector<std::pair<Eigen::VectorXd, Eigen::MatrixXd>> predictedPoints);
+
+        void findHypothesis(std::vector<std::vector<float>> gij);
+
+        std::vector<std::set<int>> combinations(std::vector<std::vector<float>> gijList);
+        std::vector<std::set<int>> merge(std::vector<std::set<int>> combinations, std::vector<float> trackObservationList);
+
 
     private:
 

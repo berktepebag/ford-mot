@@ -15,6 +15,7 @@ bool DEBUG = false;
 
 Tracking::Tracking()
 {
+    std::cout << "Tracking constructor called \n";
     ros::NodeHandle nh;
 
     is_initialized_ = false;
@@ -22,6 +23,7 @@ Tracking::Tracking()
 
     // State Matrix
     ekf_.x_ = Eigen::VectorXd(4);
+    ekf_.x_ << 0, 0, 0, 0;
 
     // State Covariance Matrix
     ekf_.P_ = Eigen::MatrixXd(4,4);
@@ -36,6 +38,7 @@ Tracking::Tracking()
                 0, 1, 0, 1, 
                 0, 0, 1, 0, 
                 0, 0, 0, 1;
+
     
     if (!nh.getParam ("ekf/Qv_ax", Qv_ax)){ Qv_ax = 0.1;}  //Eigen::EigenMultivariateNormal<float> normX_solver1(mean,covar);     
     if (!nh.getParam ("ekf/Qv_ay", Qv_ay)){ Qv_ay = 0.1;}       
@@ -46,29 +49,25 @@ Tracking::Tracking()
     if (!nh.getParam ("ekf/R_Radar_vel_lon", R_Radar_vel_lon)){ R_Radar_vel_lon = 0.027;} //m/s
     if (!nh.getParam ("ekf/R_Radar_vel_lat", R_Radar_vel_lat)){ R_Radar_vel_lat = 0.027;} //m/s    
 
+    ekf_.H_ = Eigen::MatrixXd::Identity(4,4);            
+    ekf_.R_ = Eigen::MatrixXd(4,4);
+    ekf_.R_ <<  R_Radar_range_lon*R_Radar_range_lon, 0, 0, 0,
+                0, R_Radar_range_lat*R_Radar_range_lat, 0, 0,
+                0, 0, R_Radar_vel_lon*R_Radar_vel_lon, 0,
+                0, 0, 0, R_Radar_vel_lat*R_Radar_vel_lat;   
+
     odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 30);   
     posePub = nh.advertise<nav_msgs::Path>("path", 5);
 }
 
 Tracking::~Tracking(){}
 
-std::pair<Eigen::VectorXd, Eigen::MatrixXd> Tracking::ProcessMeasurement(const std::string sensorType, const std::vector<Eigen::VectorXd> measurements)
+std::vector<float> Tracking::GijCalculation(const std::vector<Eigen::VectorXd> measurements)
 {
-    // Set sensor type
-    ekf_.sensorType_ = sensorType;
+    std::vector<float> gijList;
 
-    if(!is_initialized_)
-    {
-        if(DEBUG) ROS_INFO("Initializing Tracking");
-        // Set current everything to zero (x, y, vx, vy)
-        ekf_.x_ << 0, 0, 0, 0;
+    std::cout << "Gij Calculation Started" << std::endl;
 
-        // previous_timestamp_ = measurement_package.timestamp_;
-        previous_timestamp_ = ros::Time::now();
-
-        is_initialized_ = true;
-        return {ekf_.x_,ekf_.P_};
-    }
     // time between last sensor reading and current reading
     // float dt = (measurement_package.timestamp_ - previous_timestamp_) / 1000000.0;
     current_timestamp_ = ros::Time::now();
@@ -97,33 +96,20 @@ std::pair<Eigen::VectorXd, Eigen::MatrixXd> Tracking::ProcessMeasurement(const s
 
     ekf_.Q_ = G * Qv * G.transpose();
 
-    if(DEBUG) ROS_INFO("!!!!!!!!!!!!!!!!!! \n Predicting...");
+    if(DEBUG) ROS_INFO("!!!!!!!!!!!!!!!!!! \n Predicting... \n");
     ekf_.Predict();
     if(DEBUG)
     {
         std::cout << "x_= " << ekf_.x_ << std::endl;
         std::cout << "P_= " << ekf_.P_ << std::endl;
-        ROS_INFO("Predict Complete...");
+        ROS_INFO("Predict Complete... \n");
     }
-
-    if(sensorType == "RADAR")
-    {
-        if(DEBUG) ROS_INFO("Setting RADAR");
-        ekf_.H_ = Eigen::MatrixXd::Identity(4,4);
-              
-        ekf_.R_ = Eigen::MatrixXd(4,4);
-        ekf_.R_ <<  R_Radar_range_lon*R_Radar_range_lon, 0, 0, 0,
-                    0, R_Radar_range_lat*R_Radar_range_lat, 0, 0,
-                    0, 0, R_Radar_vel_lon*R_Radar_vel_lon, 0,
-                    0, 0, 0, R_Radar_vel_lat*R_Radar_vel_lat;                    
-    }    
-
+    
     // // measurement residual covariance matrix
     Eigen::MatrixXd S_ = Eigen::MatrixXd(4,4);
     S_ = ekf_.H_ * ekf_.P_ * ekf_.H_.transpose() + ekf_.R_;    
 
     // std::cout << "S_: " << S_ << std::endl;
-
     // std::cout << "measurements size: " << measurements.size();
 
     for (size_t meas = 0; meas < measurements.size(); meas++)
@@ -131,26 +117,13 @@ std::pair<Eigen::VectorXd, Eigen::MatrixXd> Tracking::ProcessMeasurement(const s
         Eigen::MatrixXd vj = measurements[meas]-(ekf_.H_* ekf_.x_);
         float dij2 = (vj.transpose() * S_.inverse() * vj).value();
         // std::cout << "dij2: " << dij2 << std::endl;
-        
+
+        float gij = exp(-(dij2 / 2)) / ( 2 * M_PI * sqrt(S_.determinant()) );
+        std::cout << "gij: " << gij << std::endl;     
+        gijList.push_back(gij); 
     }
-    
 
-
-
-    // Bütün hipotezlerin hesaplanması ve track'e atanacak olan x_'in (x,y noktaları) bulunması. P_, bize predicted point'in bir sonraki KF'de kullanılması için gereken covariance.
-    
-    // Update'in içine gij den en yüksek ihtimalli olan gidecek
-    // ekf_.Update(measurements);
-
-    // ROS_INFO("***********");
-    // std::cout << "x_= " << ekf_.x_[0] << std::endl;
-    // std::cout << "P_= " << ekf_.P_.coeff(0,0) << std::endl;
-
-    // PublishOdom();
-    // PublishPathMessage();
-
-    // ekf_.x_, ekf_.P_;
-    return {ekf_.x_, ekf_.P_};
+    return gijList;
 }
 
 void Tracking::PublishPathMessage()

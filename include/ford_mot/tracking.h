@@ -18,7 +18,8 @@ class Tracking{
         Tracking();
         virtual ~Tracking();
 
-        std::pair<Eigen::VectorXd, Eigen::MatrixXd> ProcessMeasurement(const std::string sensorType,const std::vector<Eigen::VectorXd> measurements);
+        // std::pair<Eigen::VectorXd, Eigen::MatrixXd> GijCalculation(const std::vector<Eigen::VectorXd> measurements);
+        std::vector<float> GijCalculation(const std::vector<Eigen::VectorXd> measurements);
         ExtKalmanFilter ekf_;
 
         void PublishOdom();

@@ -90,7 +90,8 @@
 			"set": "cpp",
 			"string": "cpp",
 			"cholesky": "cpp",
-			"*.expression": "cpp"
+			"*.expression": "cpp",
+			"*.txx": "cpp"
 		},
 		"python.autoComplete.extraPaths": [
 			"/opt/ros/melodic/lib/python2.7/dist-packages"

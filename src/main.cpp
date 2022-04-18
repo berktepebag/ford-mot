@@ -16,11 +16,26 @@
 
 class Track
 {
+    private:
+        Tracking trackKF;
+
+        bool comfirmed = false;
+        int ID = 0;
+
+        // Each time a observation is assigned increase by one. If reaches threshold, call tentativeToComfirmed()
+        int tentToComfCount = 0;
+        int comfToDelCount = 0;
+
+        // Hold x and y points to be drawen in RVIZ
+        std::vector<std::pair<float, float>> trackPointsList;
+
     public:
-        Track(int &TRACK_ID)
+        Track(){}
+
+        Track(int &TRACK_ID, Eigen::VectorXd x_)
         {
+            ROS_INFO("\n****************\n Track ID: %d established as Tentavi @ \n x: %f y: %f vx: %f vy: %f \n****************", TRACK_ID, x_(0), x_(1), x_(2), x_(3));       
             setID(TRACK_ID);
-            std::cout << "Track ID: " << TRACK_ID << " established as Comfirmed: " << std::boolalpha << comfirmed << std::endl;            
         }
         ~Track(){}
 
@@ -40,31 +55,23 @@ class Track
 
         // Assign Observation point to the track points list
 
-        auto getPredictedPointXandP(std::string sensorType, std::vector<Eigen::VectorXd> measurements)
+        std::vector<float> calculateGij(std::vector<Eigen::VectorXd> measurementsList)
         {
-            return trackTracking.ProcessMeasurement(sensorType, measurements);
+            std::cout << "calculateGij \n";
+            return trackKF.GijCalculation(measurementsList);
         }
-        
 
+        void addTrackPointsToList(float xPoint, float yPoint)
+        {
+            trackPointsList.push_back(std::pair<float,float>(xPoint, yPoint) );
 
-    private:
-        Tracking trackTracking;
+        }
 
-        bool comfirmed = false;
-        int ID = 0;
+        void addPredictedPointsToList(float xPoint, float yPoint)
+        {
+            trackPointsList.push_back(std::pair<float,float>(xPoint, yPoint) );
 
-        // Each time a observation is assigned increase by one. If reaches threshold, call tentativeToComfirmed()
-        int tentToComfCount = 0;
-        int comfToDelCount = 0;
-
-        // Hold x and y points to be drawen in RVIZ
-        std::vector<std::pair<float, float>> trackPointsList;
-
-        // state vector at k-1
-        Eigen::VectorXd x_;
-        // state covariance matrix
-        Eigen::MatrixXd P_;
-
+        }
 
 };
 
@@ -78,7 +85,7 @@ class SensorClass
 
         ros::Subscriber radarSubs;
 
-        Tracking tracking;
+        // Tracking tracking;
         Eigen::VectorXd radarMeas = Eigen::VectorXd(4);
 
         std::string sensorType;
@@ -110,7 +117,7 @@ class SensorClass
 
     void radarCallback(const std_msgs::Float32MultiArray::ConstPtr& msg)
     {
-        std::vector<Eigen::VectorXd> measurements;
+        std::vector<Eigen::VectorXd> measurementsList;
         GLOBAL_STEP_COUNTER++;
 
         // ROS_INFO("Beginning Pred.Point.Size: %d", predictedPoints.size());
@@ -148,29 +155,36 @@ class SensorClass
             msg->data[col+50],
             msg->data[col+60];
 
-            measurements.push_back(radarMeas);
+            measurementsList.push_back(radarMeas);
         }
+
+        std::cout << "meas size: " << measurementsList.size() << std::endl;
 
         // If there is no track in tracksList
         if(tracksList.size() == 0){
-        
-            // std::cout << "meas size: " << measurements.size() << std::endl;
-            auto [x_, p_] = tracking.ProcessMeasurement(sensorType, measurements);
-            // std::cout << "x_: " << x_ << " p_: " << p_ << std::endl;
-            predictedPoints.push_back({x_, p_});
-            // Add them as "tentavi tracks" to tracksList
-            tracksList.emplace_back(Track(TRACK_ID));
+
+            // Add teach observation as "tentavi tracks" to tracksList
+            for(auto measurement : measurementsList)
+            {
+            tracksList.emplace_back(Track(TRACK_ID,measurement));
+            
+            }
         }
 
+        std::vector<std::vector<float>> hypothesisList; 
+
+        // Create predicted points from each track (tentative or comfirmed)
         for(auto track : tracksList)
         {
             std::cout << "Track ID: " << track.getID() << " Status: " << std::boolalpha << track.getStatus() << std::endl;
-            std::cout << "Predicting Points using KF \n";    
-
-            auto [x_, p_] = track.getPredictedPointXandP(sensorType, measurements); 
-            std::cout << "Predicted Points x_: " << x_ << " p_: " << p_ << std::endl;
-
+            std::cout << "Predicting Points using KF \n";             
+            // std::cout << "Predicted Points x_: " << x_ << " p_: " << p_ << std::endl;
+            hypothesisList.push_back(track.calculateGij(measurementsList));
         }
+
+        utilities.combinations(hypothesisList);
+
+        
 
 
 
@@ -191,22 +205,22 @@ class SensorClass
         // ROS_INFO("End Pred.Point.Size: %d", predictedPoints.size());
 
         // Get current Observations
-        // ROS_INFO("Measurements.Size: %d", measurements.size());
+        // ROS_INFO("measurementsList.Size: %d", measurementsList.size());
         // for (size_t i = 0; i < predictedPoints.size(); i++)
         // {
         //     // std::cout << "predictedPoints[i].first " << predictedPoints[i].first[0] << std::endl;
         //     float mu_x = predictedPoints[i].first[0];
 
-        //     utilities.CalculateMahalanobisDistance(measurements, predictedPoints);
+        //     utilities.CalculateMahalanobisDistance(measurementsList, predictedPoints);
 
 
-        //     // for (size_t j = 0; j < measurements.size(); j++)
+        //     // for (size_t j = 0; j < measurementsList.size(); j++)
         //     // {
-        //     //     // Eigen::VectorXd dij_y = measurements[j][0]
-        //     //     // std::cout << "measurements x: " << measurements[j][0] << std::endl;
+        //     //     // Eigen::VectorXd dij_y = measurementsList[j][0]
+        //     //     // std::cout << "measurementsList x: " << measurementsList[j][0] << std::endl;
 
 
-        //     //     // Eigen::VectorXd dij_y = measurements[j][0] - mu_x;
+        //     //     // Eigen::VectorXd dij_y = measurementsList[j][0] - mu_x;
 
         //     // }
             
