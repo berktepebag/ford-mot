@@ -20,6 +20,8 @@ class Tracking{
 
         // std::pair<Eigen::VectorXd, Eigen::MatrixXd> GijCalculation(const std::vector<Eigen::VectorXd> measurements);
         std::vector<float> GijCalculation(const std::vector<Eigen::VectorXd> measurements);
+        void update(Eigen::VectorXd measurement);
+
         ExtKalmanFilter ekf_;
 
         void PublishOdom();

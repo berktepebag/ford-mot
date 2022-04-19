@@ -63,7 +63,11 @@ class Track
             return trackKF.GijCalculation(measurementsList);
         }
 
-        
+        void kfUpdate(Eigen::VectorXd chosenMeasurement)
+        {
+            trackKF.update(chosenMeasurement);
+        }
+
 
         void addTrackPointsToList(float xPoint, float yPoint)
         {
@@ -239,6 +243,7 @@ class SensorClass
             std::cout << "Hyp No: "<< hyp.first << " Norm likelihood: " << hyp.second/totalLikelihood << std::endl;
         }
 
+        // Sort by highest likelihood
         for(auto hyp : normHyptLikelihoods)
         {
             std::sort(normHyptLikelihoods.begin(),normHyptLikelihoods.end(), sortbysec);
@@ -249,88 +254,18 @@ class SensorClass
 
         // std::cout << "Track Size: " << hypothesisCombinations[normHyptLikelihoods.back().first].size() <<std::endl;
 
+        // Update KF with highest likelihood measurement
         for (int track = 0; track < hypothesisCombinations[normHyptLikelihoods.back().first].size(); track++)
         {
-            // std::cout << "Track: " << track << std::endl;
-            // tracksList[track]
+            int hypNo = normHyptLikelihoods.back().first;
+            int selectedMeas = hypothesisCombinations[hypNo][track]-1;
+
+            std::cout << "hypNo: " << hypNo << " Track: " << track << " selectedMeas: " << selectedMeas << std::endl;
+            std::cout << "selected meas: "<< measurementsList[selectedMeas];
+            tracksList[track].kfUpdate(measurementsList[selectedMeas]);
         }
 
 
-
-
-
-
-
-
-
-
-
-        
-
-
-
-        
-
-
-
-        // ROS_INFO("GLOBAL_STEP_COUNTER: %d", GLOBAL_STEP_COUNTER);    
-        // ROS_INFO("Predicted Points Size: %d", predictedPoints.size());    
-        
-
-
-
-
-        // for (auto &pp:predictedPoints){std::cout << "*** x_:" << pp.first << " \n";}
-
-        // ROS_INFO("Global Counter: %d", GLOBAL_STEP_COUNTER);
-
-        // *******JPDAF Starts Here
-
-        // Get Predicted Points from previous step
-        // ROS_INFO("End Pred.Point.Size: %d", predictedPoints.size());
-
-        // Get current Observations
-        // ROS_INFO("measurementsList.Size: %d", measurementsList.size());
-        // for (size_t i = 0; i < predictedPoints.size(); i++)
-        // {
-        //     // std::cout << "predictedPoints[i].first " << predictedPoints[i].first[0] << std::endl;
-        //     float mu_x = predictedPoints[i].first[0];
-
-        //     utilities.CalculateMahalanobisDistance(measurementsList, predictedPoints);
-
-
-        //     // for (size_t j = 0; j < measurementsList.size(); j++)
-        //     // {
-        //     //     // Eigen::VectorXd dij_y = measurementsList[j][0]
-        //     //     // std::cout << "measurementsList x: " << measurementsList[j][0] << std::endl;
-
-
-        //     //     // Eigen::VectorXd dij_y = measurementsList[j][0] - mu_x;
-
-        //     // }
-            
-        // }
-        
-        // ROS_INFO("Predicted points P sigmax: %f sigmay %f", )
-
-        // float dij2 = 
-
-
-        // Create Hypothesis 
-        
-        // For each Predicted Point Calculate Mahalanobis Distance dij2
-
-        // Pick Highest Prob. "Pred. Point - Observation" Pair
-
-        // Track Maintenance Called
-
-        // For tentative and comfirmed tracks run KF, predict next Predicted Points 
-
-
-        predictedPoints.empty();
-
-
-        
     }
 
 };

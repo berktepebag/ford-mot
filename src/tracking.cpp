@@ -98,7 +98,7 @@ std::vector<float> Tracking::GijCalculation(const std::vector<Eigen::VectorXd> m
 
     if(DEBUG) ROS_INFO("!!!!!!!!!!!!!!!!!! \n Predicting... \n");
     ekf_.Predict();
-    if(DEBUG)
+    if(true)
     {
         std::cout << "x_= " << ekf_.x_ << std::endl;
         std::cout << "P_= " << ekf_.P_ << std::endl;
@@ -124,6 +124,11 @@ std::vector<float> Tracking::GijCalculation(const std::vector<Eigen::VectorXd> m
     }
 
     return gijList;
+}
+
+void Tracking::update(Eigen::VectorXd measurement){
+    ekf_.Update(measurement);
+    PublishPathMessage();
 }
 
 void Tracking::PublishPathMessage()
