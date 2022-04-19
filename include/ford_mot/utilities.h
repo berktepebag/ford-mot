@@ -17,8 +17,10 @@ class Utilities
 
         void findHypothesis(std::vector<std::vector<float>> gij);
 
-        std::vector<std::set<int>> combinations(std::vector<std::vector<float>> gijList);
-        std::vector<std::unordered_set<int>> merge(std::vector<std::unordered_set<int>> combinations, std::vector<float> trackObservationList);
+        std::vector<std::vector<int>> hypothesisCombinations(std::vector<std::vector<float>> gijList);
+        std::vector<std::unordered_set<int>> hypothesisMerge(std::vector<std::unordered_set<int>> combinations, std::vector<float> trackObservationList);
+
+        // bool sortbysec(const std::pair<int,int> &a,const std::pair<int,int> &b);
 
 
     private:

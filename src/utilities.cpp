@@ -102,14 +102,11 @@ void Utilities::findHypothesis(std::vector<std::vector<float>> gijList)
             std::cout << "gijList[" << track << "," << obs << "]" << gijList[track][obs] << std::endl;
         }        
     }   
-
-
 }
 
-std::vector<std::set<int>> Utilities::combinations(std::vector<std::vector<float>> gijList) 
+std::vector<std::vector<int>> Utilities::hypothesisCombinations(std::vector<std::vector<float>> gijList) 
 {
-    // std::vector<std::vector<float>> gijList {{1,2,3},{1,2,3},{1,2,3}};//,{6,7,8}};
-
+    // std::vector<std::vector<float>> gijList {{1,2},{1,2}};//,{6,7,8}};
 
     int nTracks = gijList.size();
     int nObservations = gijList[0].size();
@@ -121,7 +118,7 @@ std::vector<std::set<int>> Utilities::combinations(std::vector<std::vector<float
         listObs.push_back(i);
     }
 
-    std::cout << "nTracks: " << nTracks << " nObservations: " << nObservations << "\n"; // 1,2
+    std::cout << "*--* \nnTracks: " << nTracks << " nObservations: " << nObservations << "\n"; // 1,2
 
     std::vector<std::unordered_set<int>> combinationsList;
     std::vector<int> observationSet;
@@ -133,28 +130,30 @@ std::vector<std::set<int>> Utilities::combinations(std::vector<std::vector<float
 
     for (size_t track = 1; track < nTracks; track++)
     {        
-        combinationsList = merge(combinationsList, listObs);
+        combinationsList = hypothesisMerge(combinationsList, listObs);
     }
 
-    std::cout << "\n*************\n";
-   // // Return the resulting Hypothesis List
+    std::vector<std::vector<int>> retVec;
+
+    // // Return the resulting Hypothesis List
     for (int comb = 0; comb < combinationsList.size(); comb++)
     {
         if(combinationsList[comb].size() == gijList.size())
         {            
+            std::vector<int> trackVec;
             for(auto x : combinationsList[comb])
             {
-                std::cout << x << ", ";
+                // std::cout << x << ", ";
+                trackVec.push_back(x);
             }
-            std::cout << "\n----------\n";
+            retVec.push_back(trackVec);
         }        
     }
-    std::cout << "\n*************\n";
-
     
+    return retVec;    
 }
 
-std::vector<std::unordered_set<int>> Utilities::merge(std::vector<std::unordered_set<int>> combinations, std::vector<float> trackObservationList)
+std::vector<std::unordered_set<int>> Utilities::hypothesisMerge(std::vector<std::unordered_set<int>> combinations, std::vector<float> trackObservationList)
 {
     std::vector<std::unordered_set<int>> retVec;
     for(auto combination : combinations)
@@ -169,3 +168,5 @@ std::vector<std::unordered_set<int>> Utilities::merge(std::vector<std::unordered
    
     return retVec;
 }
+
+

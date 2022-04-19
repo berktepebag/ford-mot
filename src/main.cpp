@@ -9,10 +9,11 @@
 #include "eigen3/Eigen/Dense"
 #include "ford_mot/measurement_package.h"
 #include "ford_mot/tracking.h"
+#include "ford_mot/utilities.h"
 
 #include <vector>
+#include <map>
 
-#include "ford_mot/utilities.h"
 
 class Track
 {
@@ -28,6 +29,7 @@ class Track
 
         // Hold x and y points to be drawen in RVIZ
         std::vector<std::pair<float, float>> trackPointsList;
+
 
     public:
         Track(){}
@@ -57,9 +59,11 @@ class Track
 
         std::vector<float> calculateGij(std::vector<Eigen::VectorXd> measurementsList)
         {
-            std::cout << "calculateGij \n";
+            // std::cout << "calculate Gij \n";
             return trackKF.GijCalculation(measurementsList);
         }
+
+        
 
         void addTrackPointsToList(float xPoint, float yPoint)
         {
@@ -103,6 +107,10 @@ class SensorClass
         
         Utilities utilities;
 
+        const float PD = 0.75;
+        const float BETA = 0.03;
+ 
+
     public:
         SensorClass()
         {
@@ -111,6 +119,12 @@ class SensorClass
             currentTime = ros::Time::now();
             prevTime = currentTime;
 
+        }
+
+        static bool sortbysec(const std::pair<int,int> &a,
+              const std::pair<int,int> &b)
+        {
+            return (a.second < b.second);
         }
 
         ~SensorClass(){}
@@ -162,27 +176,98 @@ class SensorClass
 
         // If there is no track in tracksList
         if(tracksList.size() == 0){
-
             // Add teach observation as "tentavi tracks" to tracksList
             for(auto measurement : measurementsList)
             {
-            tracksList.emplace_back(Track(TRACK_ID,measurement));
-            
+            tracksList.emplace_back(Track(TRACK_ID,measurement));            
             }
         }
 
-        std::vector<std::vector<float>> hypothesisList; 
-
-        // Create predicted points from each track (tentative or comfirmed)
+        // Calculate gij(s)
+        std::vector<std::vector<float>> gijList; 
         for(auto track : tracksList)
         {
-            std::cout << "Track ID: " << track.getID() << " Status: " << std::boolalpha << track.getStatus() << std::endl;
-            std::cout << "Predicting Points using KF \n";             
-            // std::cout << "Predicted Points x_: " << x_ << " p_: " << p_ << std::endl;
-            hypothesisList.push_back(track.calculateGij(measurementsList));
+            std::cout << "----Track ID: " << track.getID() << " Status: " << std::boolalpha << track.getStatus() << "\nCalculating gij...\n";
+            // std::cout << "Meas. List size: " << measurementsList.size() <<"\n";             
+
+            gijList.push_back(track.calculateGij(measurementsList));
+        }
+        std::cout << "gijList size: " << gijList.size() <<"\n";             
+
+        std::vector<std::vector<int>> hypothesisCombinations;
+        hypothesisCombinations = utilities.hypothesisCombinations(gijList);
+
+        // Hyp No. and it's calculated likelihood
+        std::vector<std::pair<int,float>> hypothesisLikelihoods;
+        std::vector<std::pair<int,float>> normHyptLikelihoods;
+
+        //Hypothesis #
+        for (int hypo = 0; hypo < hypothesisCombinations.size(); hypo++)
+        {
+            float hypLikelihood = 1;
+            //Track
+            for (int track = 0; track < hypothesisCombinations[hypo].size(); track++)
+            {
+                if(false){
+                std::cout 
+                << "Hypot.: " << hypo+1 
+                << "\n Track: " << track+1 
+                << "\n Selected Meas.: " << hypothesisCombinations[hypo][track]-1
+                // << "\n Meas Value: " << measurementsList[hypothesisCombinations[hypo][track]-1]
+                << "\n gij: " << gijList[hypo][track] 
+                << std::endl;
+                }                
+                // Calc. each hypo. likelihood with each tracks gij                
+                hypLikelihood  *= PD * gijList[hypo][track] * pow(BETA,(track-hypo));
+            }      
+            std::cout << "hypLikelihood.: " << hypLikelihood << std::endl;
+            hypothesisLikelihoods.emplace_back(hypo,hypLikelihood);
         }
 
-        utilities.combinations(hypothesisList);
+        // Calculate normalized hypLikelihoods
+
+        // Sum of all hypothesis
+        float totalLikelihood = 0;
+        for(auto hyp : hypothesisLikelihoods)
+        {
+            totalLikelihood += hyp.second;
+        }
+        // Normalized hyp. likelihoods
+        for(auto hyp : hypothesisLikelihoods)
+        {
+            normHyptLikelihoods.emplace_back(hyp.first,hyp.second/totalLikelihood);
+            std::cout << "Hyp No: "<< hyp.first << " Norm likelihood: " << hyp.second/totalLikelihood << std::endl;
+        }
+
+        for(auto hyp : normHyptLikelihoods)
+        {
+            std::sort(normHyptLikelihoods.begin(),normHyptLikelihoods.end(), sortbysec);
+            // std::cout << "Hyp No: " hyp.first << "Track: " << hypothesisCombinations[hyp.first]
+        }
+
+        std::cout << "Highest score Hypt. No: " << normHyptLikelihoods.back().first << " Norm. Likelihood: " << normHyptLikelihoods.back().second <<std::endl;
+
+        // std::cout << "Track Size: " << hypothesisCombinations[normHyptLikelihoods.back().first].size() <<std::endl;
+
+        for (int track = 0; track < hypothesisCombinations[normHyptLikelihoods.back().first].size(); track++)
+        {
+            // std::cout << "Track: " << track << std::endl;
+            // tracksList[track]
+        }
+
+
+
+
+
+
+
+
+
+
+
+        
+
+
 
         
 

@@ -66,7 +66,7 @@ std::vector<float> Tracking::GijCalculation(const std::vector<Eigen::VectorXd> m
 {
     std::vector<float> gijList;
 
-    std::cout << "Gij Calculation Started" << std::endl;
+    // std::cout << "Gij Calculation Started" << std::endl;
 
     // time between last sensor reading and current reading
     // float dt = (measurement_package.timestamp_ - previous_timestamp_) / 1000000.0;
@@ -119,7 +119,7 @@ std::vector<float> Tracking::GijCalculation(const std::vector<Eigen::VectorXd> m
         // std::cout << "dij2: " << dij2 << std::endl;
 
         float gij = exp(-(dij2 / 2)) / ( 2 * M_PI * sqrt(S_.determinant()) );
-        std::cout << "gij: " << gij << std::endl;     
+        // std::cout << "gij: " << gij << std::endl;     
         gijList.push_back(gij); 
     }
 

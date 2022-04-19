@@ -91,7 +91,14 @@
 			"string": "cpp",
 			"cholesky": "cpp",
 			"*.expression": "cpp",
-			"*.txx": "cpp"
+			"*.txx": "cpp",
+			"forward_list": "cpp",
+			"csetjmp": "cpp",
+			"scoped_allocator": "cpp",
+			"regex": "cpp",
+			"codecvt": "cpp",
+			"cuchar": "cpp",
+			"shared_mutex": "cpp"
 		},
 		"python.autoComplete.extraPaths": [
 			"/opt/ros/melodic/lib/python2.7/dist-packages"
