@@ -25,6 +25,8 @@ class Tracking{
         ExtKalmanFilter ekf_;
 
         void PublishOdom();
+        void PublishPathMessage();
+
 
     private:
 
@@ -53,7 +55,6 @@ class Tracking{
 
         nav_msgs::Odometry odom;
 
-        void PublishPathMessage();
 
 };
 

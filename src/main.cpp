@@ -20,40 +20,98 @@ class Track
     private:
         Tracking trackKF;
 
-        bool comfirmed = false;
+        bool comfirmed, toBeDeleted = false;
         int ID = 0;
 
-        // Each time a observation is assigned increase by one. If reaches threshold, call tentativeToComfirmed()
-        int tentToComfCount = 0;
-        int comfToDelCount = 0;
-
-        // Hold x and y points to be drawen in RVIZ
+        // Hold x and y points to be drawen in RVIZ        
         std::vector<std::pair<float, float>> trackPointsList;
+
+        int createdAtGlobalCounter = 0;
+        int currentCounter = 0;
+
+        int tentativeToComfirmedThreshold = 2;//3;
+        int tentativeToComfirmedWindow = 3;//5;
+
+        int toBeDeletedThreshold = 3;
+        int toBeDeletedWindow = 5;
+
 
 
     public:
         Track(){}
 
-        Track(int &TRACK_ID, Eigen::VectorXd x_)
+        Track(int &TRACK_ID_, Eigen::VectorXd x_, int GLOBAL_COUNTER_)
         {
-            ROS_INFO("\n****************\n Track ID: %d established as Tentavi @ \n x: %f y: %f vx: %f vy: %f \n****************", TRACK_ID, x_(0), x_(1), x_(2), x_(3));       
-            setID(TRACK_ID);
+            ROS_INFO("\n****************\n Track ID: %d established as Tentavi Loc-> \n x: %f y: %f vx: %f vy: %f @Counter: %d \n****************", TRACK_ID_, x_(0), x_(1), x_(2), x_(3), GLOBAL_COUNTER_ );       
+            createNewTrack(TRACK_ID_, GLOBAL_COUNTER_);
         }
-        ~Track(){}
+        ~Track()
+        {
+            // ROS_INFO("Track No: %d has been deleted!", ID);
+        }
 
         void tentativeToComfirmed()
         {
             comfirmed = true;
         }
 
-        void setID(int &TRACK_ID)
+        void pubPathMessage()
         {
-            ID = TRACK_ID;
-            TRACK_ID++;
+            if(comfirmed)
+            {
+                trackKF.PublishPathMessage();
+            }
         }
+
+        void increaseCurrentCounter()
+        {
+            ++currentCounter;
+        }
+
+        void createNewTrack(int &TRACK_ID, int GLOBAL_COUNTER_)
+        {
+            setID(TRACK_ID);
+            TRACK_ID++;
+
+            createdAtGlobalCounter = GLOBAL_COUNTER_;
+            currentCounter = createdAtGlobalCounter ;
+        }
+
+        int setID(int ID_){ ID = ID_;}
         int getID(){return ID;}
 
-        bool getStatus(){return comfirmed;}
+        bool trackComfirmed(){return comfirmed;}
+
+        bool trackMaintenance(const int GLOBAL_COUNTER_)
+        {
+            std::cout << "\n Track ID: " << ID << " C@: " << createdAtGlobalCounter << "/" << GLOBAL_COUNTER_ << " Consecutive: " << (GLOBAL_COUNTER_ - currentCounter) << " Sts: " << comfirmed << std::endl;
+            // If tentative
+            if(trackComfirmed() == false)
+            {                
+                // If sufficient time passed to check tentative
+                if(GLOBAL_COUNTER_ - createdAtGlobalCounter > tentativeToComfirmedWindow)
+                {             
+                    // std::cout << "\n @@@@@ Track ID: " << ID << " Diff: " <<GLOBAL_COUNTER_ - createdAtGlobalCounter << std::endl;
+
+                    if(GLOBAL_COUNTER_ - currentCounter < tentativeToComfirmedThreshold)
+                    {
+                        // std::cout << "\n@@@@@ Comfirming Track " << ID << std::endl;
+                        comfirmed = true;
+                    }
+                }
+            }
+
+            // If comfirmed & If sufficient time passed to be deleted
+            if(GLOBAL_COUNTER_ - currentCounter > toBeDeletedWindow)
+            {
+                if(GLOBAL_COUNTER_ - currentCounter > toBeDeletedThreshold)
+                {
+                    toBeDeleted = true;
+                }
+            }
+
+            return toBeDeleted;
+        }
 
         // Assign Observation point to the track points list
 
@@ -68,17 +126,14 @@ class Track
             trackKF.update(chosenMeasurement);
         }
 
-
         void addTrackPointsToList(float xPoint, float yPoint)
         {
             trackPointsList.push_back(std::pair<float,float>(xPoint, yPoint) );
-
         }
 
         void addPredictedPointsToList(float xPoint, float yPoint)
         {
             trackPointsList.push_back(std::pair<float,float>(xPoint, yPoint) );
-
         }
 
 };
@@ -105,7 +160,7 @@ class SensorClass
         std::vector<Track> tracksList;
 
         // Global Counter, counts steps since tracker initialized
-        int GLOBAL_STEP_COUNTER = 0;
+        int GLOBAL_COUNTER = 0;
         // Track ID's for track maintenance
         int TRACK_ID = 0;
         
@@ -122,23 +177,18 @@ class SensorClass
         
             currentTime = ros::Time::now();
             prevTime = currentTime;
-
         }
 
-        static bool sortbysec(const std::pair<int,int> &a,
-              const std::pair<int,int> &b)
-        {
-            return (a.second < b.second);
-        }
+        static bool sortbysec(const std::pair<int,int> &a, const std::pair<int,int> &b)
+        {return (a.second < b.second);}
 
         ~SensorClass(){}
 
     void radarCallback(const std_msgs::Float32MultiArray::ConstPtr& msg)
     {
         std::vector<Eigen::VectorXd> measurementsList;
-        GLOBAL_STEP_COUNTER++;
+        GLOBAL_COUNTER++;
 
-        // ROS_INFO("Beginning Pred.Point.Size: %d", predictedPoints.size());
         sensorType = "RADAR";
         if(DEBUG) ROS_INFO("Radar call back");   
 
@@ -167,6 +217,7 @@ class SensorClass
                 );
             }
 
+            // [x, y, vx, vy]
             radarMeas << 
             msg->data[col+30],
             msg->data[col+40],
@@ -183,7 +234,7 @@ class SensorClass
             // Add teach observation as "tentavi tracks" to tracksList
             for(auto measurement : measurementsList)
             {
-            tracksList.emplace_back(Track(TRACK_ID,measurement));            
+            tracksList.emplace_back(Track(TRACK_ID,measurement,GLOBAL_COUNTER));            
             }
         }
 
@@ -191,7 +242,7 @@ class SensorClass
         std::vector<std::vector<float>> gijList; 
         for(auto track : tracksList)
         {
-            std::cout << "----Track ID: " << track.getID() << " Status: " << std::boolalpha << track.getStatus() << "\nCalculating gij...\n";
+            std::cout << "----Track ID: " << track.getID() << " Status: " << std::boolalpha << track.trackComfirmed() << "\nCalculating gij...\n";
             // std::cout << "Meas. List size: " << measurementsList.size() <<"\n";             
 
             gijList.push_back(track.calculateGij(measurementsList));
@@ -201,71 +252,110 @@ class SensorClass
         std::vector<std::vector<int>> hypothesisCombinations;
         hypothesisCombinations = utilities.hypothesisCombinations(gijList);
 
-        // Hyp No. and it's calculated likelihood
-        std::vector<std::pair<int,float>> hypothesisLikelihoods;
-        std::vector<std::pair<int,float>> normHyptLikelihoods;
+        std::cout << "hypothesisCombinations size: " << hypothesisCombinations.size() <<"\n";      
 
-        //Hypothesis #
-        for (int hypo = 0; hypo < hypothesisCombinations.size(); hypo++)
+        utilities.printHypothesis(gijList);
+ 
+        std::cout << "log 4 \n";
+
+        if(hypothesisCombinations.size()!=0)
         {
-            float hypLikelihood = 1;
-            //Track
-            for (int track = 0; track < hypothesisCombinations[hypo].size(); track++)
+            // Hyp No. and it's calculated likelihood
+            std::vector<std::pair<int,float>> hypothesisLikelihoods;
+            std::vector<std::pair<int,float>> normHyptLikelihoods;
+            std::cout << "log 4.1 \n";
+
+            //Hypothesis #
+            for (int hypo = 0; hypo < hypothesisCombinations.size(); hypo++)
             {
-                if(false){
-                std::cout 
-                << "Hypot.: " << hypo+1 
-                << "\n Track: " << track+1 
-                << "\n Selected Meas.: " << hypothesisCombinations[hypo][track]-1
-                // << "\n Meas Value: " << measurementsList[hypothesisCombinations[hypo][track]-1]
-                << "\n gij: " << gijList[hypo][track] 
-                << std::endl;
-                }                
-                // Calc. each hypo. likelihood with each tracks gij                
-                hypLikelihood  *= PD * gijList[hypo][track] * pow(BETA,(track-hypo));
-            }      
-            std::cout << "hypLikelihood.: " << hypLikelihood << std::endl;
-            hypothesisLikelihoods.emplace_back(hypo,hypLikelihood);
+                std::cout << "log 4.2 \n";
+
+                float hypLikelihood = 1;
+                //Track
+                for (int track = 0; track < hypothesisCombinations[hypo].size(); track++)
+                {
+                    std::cout << "log 4.2.1 \n";
+                    if(true){
+                    std::cout 
+                    << "Hypot.: " << hypo
+                    << "\n Track: " << track 
+                    << "\n Selected Meas.: " << hypothesisCombinations[hypo][track]
+                    // << "\n Meas Value: " << measurementsList[hypothesisCombinations[hypo][track]-1]
+                    << "\n gij: " << gijList[hypo][track] 
+                    << std::endl;
+                    }                
+                    // Calc. each hypo. likelihood with each tracks gij                
+                    hypLikelihood  *= PD * gijList[hypo][track] * pow(BETA,(track-hypo));
+                    std::cout << "log 4.2.2 \n";
+
+                }      
+                std::cout << "log 4.3 \n";
+
+                hypothesisLikelihoods.emplace_back(hypo,hypLikelihood);
+            }
+            std::cout << "log 5 \n";
+
+            // Calculate normalized hypLikelihoods
+
+            // Sum of all hypothesis
+            float totalLikelihood = 0;
+            for(auto hyp : hypothesisLikelihoods)
+            {
+                totalLikelihood += hyp.second;
+            }
+            // Normalized hyp. likelihoods
+            for(auto hyp : hypothesisLikelihoods)
+            {
+                normHyptLikelihoods.emplace_back(hyp.first,hyp.second/totalLikelihood);
+                std::cout << "Hyp No: "<< hyp.first << " Norm likelihood: " << hyp.second/totalLikelihood << std::endl;
+            }
+            std::cout << "log 6 \n";
+
+            // Sort by highest likelihood
+            for(auto hyp : normHyptLikelihoods)
+            {
+                std::sort(normHyptLikelihoods.begin(),normHyptLikelihoods.end(), sortbysec);
+                // std::cout << "Hyp No: " hyp.first << "Track: " << hypothesisCombinations[hyp.first]
+            }
+            std::cout << "log 7 \n";
+
+            std::cout << "Highest score Hypt. No: " << normHyptLikelihoods.back().first << " Norm. Likelihood: " << normHyptLikelihoods.back().second <<std::endl;
+
+            // std::cout << "Track Size: " << hypothesisCombinations[normHyptLikelihoods.back().first].size() <<std::endl;
+            std::cout << "log 8 \n";
+
+            // Update KF with highest likelihood measurement
+            for (int track = 0; track < hypothesisCombinations[normHyptLikelihoods.back().first].size(); track++)
+            {
+                int hypNo = normHyptLikelihoods.back().first;
+                int selectedMeas = hypothesisCombinations[hypNo][track]-1;
+
+                tracksList[track].increaseCurrentCounter();
+
+                // std::cout << "hypNo: " << hypNo << " Track: " << track << " selectedMeas: " << selectedMeas << std::endl;
+                // std::cout << "selected meas: "<< measurementsList[selectedMeas];
+                tracksList[track].kfUpdate(measurementsList[selectedMeas]);
+                
+                if(tracksList[track].trackMaintenance(GLOBAL_COUNTER))
+                {
+                    tracksList.erase(tracksList.begin()+track);
+                    ROS_INFO("Track No: %d has been deleted!", tracksList.begin()+track);
+                }
+
+                // Remove used observation
+                measurementsList.erase(measurementsList.begin()+selectedMeas);
+                std::cout << "Meas No: " << selectedMeas << " has been removed..."<< measurementsList.size() << " Meas. left." << std::endl;
+
+                tracksList[track].pubPathMessage();
+            }
+
+            
+            // Add remaining observations as "tentavi tracks" to tracksList
+            for(auto measurement : measurementsList)
+            {
+            tracksList.emplace_back(Track(TRACK_ID,measurement,GLOBAL_COUNTER));            
+            }
         }
-
-        // Calculate normalized hypLikelihoods
-
-        // Sum of all hypothesis
-        float totalLikelihood = 0;
-        for(auto hyp : hypothesisLikelihoods)
-        {
-            totalLikelihood += hyp.second;
-        }
-        // Normalized hyp. likelihoods
-        for(auto hyp : hypothesisLikelihoods)
-        {
-            normHyptLikelihoods.emplace_back(hyp.first,hyp.second/totalLikelihood);
-            std::cout << "Hyp No: "<< hyp.first << " Norm likelihood: " << hyp.second/totalLikelihood << std::endl;
-        }
-
-        // Sort by highest likelihood
-        for(auto hyp : normHyptLikelihoods)
-        {
-            std::sort(normHyptLikelihoods.begin(),normHyptLikelihoods.end(), sortbysec);
-            // std::cout << "Hyp No: " hyp.first << "Track: " << hypothesisCombinations[hyp.first]
-        }
-
-        std::cout << "Highest score Hypt. No: " << normHyptLikelihoods.back().first << " Norm. Likelihood: " << normHyptLikelihoods.back().second <<std::endl;
-
-        // std::cout << "Track Size: " << hypothesisCombinations[normHyptLikelihoods.back().first].size() <<std::endl;
-
-        // Update KF with highest likelihood measurement
-        for (int track = 0; track < hypothesisCombinations[normHyptLikelihoods.back().first].size(); track++)
-        {
-            int hypNo = normHyptLikelihoods.back().first;
-            int selectedMeas = hypothesisCombinations[hypNo][track]-1;
-
-            std::cout << "hypNo: " << hypNo << " Track: " << track << " selectedMeas: " << selectedMeas << std::endl;
-            std::cout << "selected meas: "<< measurementsList[selectedMeas];
-            tracksList[track].kfUpdate(measurementsList[selectedMeas]);
-        }
-
-
     }
 
 };

@@ -57,7 +57,7 @@ Tracking::Tracking()
                 0, 0, 0, R_Radar_vel_lat*R_Radar_vel_lat;   
 
     odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 30);   
-    posePub = nh.advertise<nav_msgs::Path>("path", 5);
+    posePub = nh.advertise<nav_msgs::Path>("path", 1);
 }
 
 Tracking::~Tracking(){}
@@ -98,7 +98,7 @@ std::vector<float> Tracking::GijCalculation(const std::vector<Eigen::VectorXd> m
 
     if(DEBUG) ROS_INFO("!!!!!!!!!!!!!!!!!! \n Predicting... \n");
     ekf_.Predict();
-    if(true)
+    if(false)
     {
         std::cout << "x_= " << ekf_.x_ << std::endl;
         std::cout << "P_= " << ekf_.P_ << std::endl;
@@ -128,7 +128,6 @@ std::vector<float> Tracking::GijCalculation(const std::vector<Eigen::VectorXd> m
 
 void Tracking::update(Eigen::VectorXd measurement){
     ekf_.Update(measurement);
-    PublishPathMessage();
 }
 
 void Tracking::PublishPathMessage()

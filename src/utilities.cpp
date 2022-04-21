@@ -16,7 +16,6 @@ Utilities::~Utilities()
     // std::cout << "Utilities Deleted";
 }
 
-
 float Utilities::calculateMahalanobisDistance(std::vector<Eigen::VectorXd> measurements, std::vector<std::pair<Eigen::VectorXd, Eigen::MatrixXd>> predictedPoints)
 {
     // MD = sqrt(Y_T * S_Inverse * Y)
@@ -84,14 +83,10 @@ float Utilities::calculateMahalanobisDistance(std::vector<Eigen::VectorXd> measu
         // std::cout << "Point "<< track << " mahanobis dist: " << mahanobis_dist << std::endl;
     }
 
-    
-    
-
     return mahanobis_dist;
 }
 
-
-void Utilities::findHypothesis(std::vector<std::vector<float>> gijList)
+void Utilities::printHypothesis(std::vector<std::vector<float>> gijList)
 {
     // Look for each track
     for (size_t track = 0; track < gijList.size(); track++)
@@ -99,7 +94,7 @@ void Utilities::findHypothesis(std::vector<std::vector<float>> gijList)
         // With each measurement
         for (size_t obs = 0; obs < gijList[track].size(); obs++)
         {
-            std::cout << "gijList[" << track << "," << obs << "]" << gijList[track][obs] << std::endl;
+            std::cout << "[] [] [] gijList[" << track << "," << obs << "]: " << gijList[track][obs] << std::endl;
         }        
     }   
 }
@@ -123,6 +118,7 @@ std::vector<std::vector<int>> Utilities::hypothesisCombinations(std::vector<std:
     std::vector<std::unordered_set<int>> combinationsList;
     std::vector<int> observationSet;
 
+    if(log) std::cout << "log 1 \n";
     for(int i=1; i<nObservations+1; i++)
     {
         combinationsList.push_back(std::unordered_set<int> {i});
@@ -132,6 +128,7 @@ std::vector<std::vector<int>> Utilities::hypothesisCombinations(std::vector<std:
     {        
         combinationsList = hypothesisMerge(combinationsList, listObs);
     }
+    if(log) std::cout << "log 2 \n";
 
     std::vector<std::vector<int>> retVec;
 
@@ -149,6 +146,7 @@ std::vector<std::vector<int>> Utilities::hypothesisCombinations(std::vector<std:
             retVec.push_back(trackVec);
         }        
     }
+    if(log) std::cout << "log 3 \n";
     
     return retVec;    
 }
