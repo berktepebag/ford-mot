@@ -27,13 +27,6 @@ class Utilities
 
     private:
 
-
-
-
-
 };
-
-
-
 
 #endif

@@ -43,6 +43,7 @@ add_library(${PROJECT_NAME}
   src/kalman_filter.cpp
   src/tracking.cpp
   src/utilities.cpp
+  src/track.cpp
 )
 target_link_libraries(
   main

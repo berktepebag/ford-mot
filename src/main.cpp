@@ -10,133 +10,10 @@
 #include "ford_mot/measurement_package.h"
 #include "ford_mot/tracking.h"
 #include "ford_mot/utilities.h"
+#include "ford_mot/track.h"
 
 #include <vector>
 #include <map>
-
-
-class Track
-{
-    private:
-        Tracking trackKF;
-
-        bool comfirmed, toBeDeleted = false;
-        int ID = 0;
-
-        // Hold x and y points to be drawen in RVIZ        
-        std::vector<std::pair<float, float>> trackPointsList;
-
-        int createdAtGlobalCounter = 0;
-        int currentCounter = 0;
-
-        int tentativeToComfirmedThreshold = 2;//3;
-        int tentativeToComfirmedWindow = 3;//5;
-
-        int toBeDeletedThreshold = 3;
-        int toBeDeletedWindow = 5;
-
-
-
-    public:
-        Track(){}
-
-        Track(int &TRACK_ID_, Eigen::VectorXd x_, int GLOBAL_COUNTER_)
-        {
-            ROS_INFO("\n****************\n Track ID: %d established as Tentavi Loc-> \n x: %f y: %f vx: %f vy: %f @Counter: %d \n****************", TRACK_ID_, x_(0), x_(1), x_(2), x_(3), GLOBAL_COUNTER_ );       
-            createNewTrack(TRACK_ID_, GLOBAL_COUNTER_);
-        }
-        ~Track()
-        {
-            // ROS_INFO("Track No: %d has been deleted!", ID);
-        }
-
-        void tentativeToComfirmed()
-        {
-            comfirmed = true;
-        }
-
-        void pubPathMessage()
-        {
-            if(comfirmed)
-            {
-                trackKF.PublishPathMessage();
-            }
-        }
-
-        void increaseCurrentCounter()
-        {
-            ++currentCounter;
-        }
-
-        void createNewTrack(int &TRACK_ID, int GLOBAL_COUNTER_)
-        {
-            setID(TRACK_ID);
-            TRACK_ID++;
-
-            createdAtGlobalCounter = GLOBAL_COUNTER_;
-            currentCounter = createdAtGlobalCounter ;
-        }
-
-        int setID(int ID_){ ID = ID_;}
-        int getID(){return ID;}
-
-        bool trackComfirmed(){return comfirmed;}
-
-        bool trackMaintenance(const int GLOBAL_COUNTER_)
-        {
-            std::cout << "\n Track ID: " << ID << " C@: " << createdAtGlobalCounter << "/" << GLOBAL_COUNTER_ << " Consecutive: " << (GLOBAL_COUNTER_ - currentCounter) << " Sts: " << comfirmed << std::endl;
-            // If tentative
-            if(trackComfirmed() == false)
-            {                
-                // If sufficient time passed to check tentative
-                if(GLOBAL_COUNTER_ - createdAtGlobalCounter > tentativeToComfirmedWindow)
-                {             
-                    // std::cout << "\n @@@@@ Track ID: " << ID << " Diff: " <<GLOBAL_COUNTER_ - createdAtGlobalCounter << std::endl;
-
-                    if(GLOBAL_COUNTER_ - currentCounter < tentativeToComfirmedThreshold)
-                    {
-                        // std::cout << "\n@@@@@ Comfirming Track " << ID << std::endl;
-                        comfirmed = true;
-                    }
-                }
-            }
-
-            // If comfirmed & If sufficient time passed to be deleted
-            if(GLOBAL_COUNTER_ - currentCounter > toBeDeletedWindow)
-            {
-                if(GLOBAL_COUNTER_ - currentCounter > toBeDeletedThreshold)
-                {
-                    toBeDeleted = true;
-                }
-            }
-
-            return toBeDeleted;
-        }
-
-        // Assign Observation point to the track points list
-
-        std::vector<float> calculateGij(std::vector<Eigen::VectorXd> measurementsList)
-        {
-            // std::cout << "calculate Gij \n";
-            return trackKF.GijCalculation(measurementsList);
-        }
-
-        void kfUpdate(Eigen::VectorXd chosenMeasurement)
-        {
-            trackKF.update(chosenMeasurement);
-        }
-
-        void addTrackPointsToList(float xPoint, float yPoint)
-        {
-            trackPointsList.push_back(std::pair<float,float>(xPoint, yPoint) );
-        }
-
-        void addPredictedPointsToList(float xPoint, float yPoint)
-        {
-            trackPointsList.push_back(std::pair<float,float>(xPoint, yPoint) );
-        }
-
-};
 
 class SensorClass
 {
@@ -165,6 +42,7 @@ class SensorClass
         int TRACK_ID = 0;
         
         Utilities utilities;
+        Track track;
 
         const float PD = 0.75;
         const float BETA = 0.03;
