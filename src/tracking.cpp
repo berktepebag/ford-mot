@@ -66,8 +66,6 @@ std::vector<float> Tracking::GijCalculation(const std::vector<Eigen::VectorXd> m
 {
     std::vector<float> gijList;
 
-    // std::cout << "Gij Calculation Started" << std::endl;
-
     // time between last sensor reading and current reading
     // float dt = (measurement_package.timestamp_ - previous_timestamp_) / 1000000.0;
     current_timestamp_ = ros::Time::now();
@@ -98,7 +96,7 @@ std::vector<float> Tracking::GijCalculation(const std::vector<Eigen::VectorXd> m
 
     if(DEBUG) ROS_INFO("!!!!!!!!!!!!!!!!!! \n Predicting... \n");
     ekf_.Predict();
-    if(false)
+    if(DEBUG)
     {
         std::cout << "x_= " << ekf_.x_ << std::endl;
         std::cout << "P_= " << ekf_.P_ << std::endl;
@@ -108,9 +106,10 @@ std::vector<float> Tracking::GijCalculation(const std::vector<Eigen::VectorXd> m
     // // measurement residual covariance matrix
     Eigen::MatrixXd S_ = Eigen::MatrixXd(4,4);
     S_ = ekf_.H_ * ekf_.P_ * ekf_.H_.transpose() + ekf_.R_;    
-
     // std::cout << "S_: " << S_ << std::endl;
-    // std::cout << "measurements size: " << measurements.size();
+
+    std::cout << "Measurement size before INSIDE gij calc.: " << measurements.size() <<"\n";             
+
 
     for (size_t meas = 0; meas < measurements.size(); meas++)
     {
@@ -122,6 +121,9 @@ std::vector<float> Tracking::GijCalculation(const std::vector<Eigen::VectorXd> m
         // std::cout << "gij: " << gij << std::endl;     
         gijList.push_back(gij); 
     }
+
+    std::cout << "gij size after INSIDE gij calc.: " << gijList.size() <<"\n";             
+
 
     return gijList;
 }

@@ -30,6 +30,7 @@ class SensorClass
 
         std::string sensorType;
         bool DEBUG = false;
+        bool log = false;
 
         // Predicted Points will be created when a track exits (x_, P_)
         std::vector<std::pair<Eigen::VectorXd, Eigen::MatrixXd>> predictedPoints;
@@ -116,6 +117,10 @@ class SensorClass
             }
         }
 
+
+        std::cout << "Measurement size before gij calc.: " << measurementsList.size() <<"\n";             
+        std::cout << "Track size before gij calc.: " << tracksList.size() <<"\n";             
+
         // Calculate gij(s)
         std::vector<std::vector<float>> gijList; 
         for(auto track : tracksList)
@@ -125,53 +130,55 @@ class SensorClass
 
             gijList.push_back(track.calculateGij(measurementsList));
         }
-        std::cout << "gijList size: " << gijList.size() <<"\n";             
+        std::cout << "gijList size after gij calc (# of tracks): " << gijList.size() <<"\n";             
 
         std::vector<std::vector<int>> hypothesisCombinations;
         hypothesisCombinations = utilities.hypothesisCombinations(gijList);
 
-        std::cout << "hypothesisCombinations size: " << hypothesisCombinations.size() <<"\n";      
-
+        std::cout << "hypothesisCombinations size: " << hypothesisCombinations.size() <<"\n";     
         utilities.printHypothesis(gijList);
  
-        std::cout << "log 4 \n";
+        if(log) std::cout << "log 4 \n";
 
         if(hypothesisCombinations.size()!=0)
         {
             // Hyp No. and it's calculated likelihood
             std::vector<std::pair<int,float>> hypothesisLikelihoods;
             std::vector<std::pair<int,float>> normHyptLikelihoods;
-            std::cout << "log 4.1 \n";
+            if(log) std::cout << "log 4.1 \n";
 
             //Hypothesis #
             for (int hypo = 0; hypo < hypothesisCombinations.size(); hypo++)
             {
-                std::cout << "log 4.2 \n";
+                if(log) std::cout << "log 4.2 \n";
 
                 float hypLikelihood = 1;
-                //Track
+
+                std::cout << "hypothesisCombinations[hypo] size (#track): " << hypothesisCombinations[hypo].size() <<"\n";    
+                // For each Track
                 for (int track = 0; track < hypothesisCombinations[hypo].size(); track++)
                 {
-                    std::cout << "log 4.2.1 \n";
+                    if(log) std::cout << "log 4.2.1 \n";
                     if(true){
                     std::cout 
-                    << "Hypot.: " << hypo
-                    << "\n Track: " << track 
+                    << "# Hypot.: " << hypo
+                    << "\n# Track: " << track 
                     << "\n Selected Meas.: " << hypothesisCombinations[hypo][track]
                     // << "\n Meas Value: " << measurementsList[hypothesisCombinations[hypo][track]-1]
-                    << "\n gij: " << gijList[hypo][track] 
+                    << "\n gij: " << gijList[track][hypo] 
                     << std::endl;
                     }                
+                    if(log) std::cout << "log 4.2.2 \n";
                     // Calc. each hypo. likelihood with each tracks gij                
-                    hypLikelihood  *= PD * gijList[hypo][track] * pow(BETA,(track-hypo));
-                    std::cout << "log 4.2.2 \n";
+                    hypLikelihood  *= PD * gijList[track][hypo] * pow(BETA,(track-hypo));
+                    if(log) std::cout << "log 4.2.3 \n";
 
                 }      
-                std::cout << "log 4.3 \n";
+                if(log) std::cout << "log 4.3 \n";
 
                 hypothesisLikelihoods.emplace_back(hypo,hypLikelihood);
             }
-            std::cout << "log 5 \n";
+            if(log) std::cout << "log 5 \n";
 
             // Calculate normalized hypLikelihoods
 
@@ -187,7 +194,7 @@ class SensorClass
                 normHyptLikelihoods.emplace_back(hyp.first,hyp.second/totalLikelihood);
                 std::cout << "Hyp No: "<< hyp.first << " Norm likelihood: " << hyp.second/totalLikelihood << std::endl;
             }
-            std::cout << "log 6 \n";
+            if(log) std::cout << "log 6 \n";
 
             // Sort by highest likelihood
             for(auto hyp : normHyptLikelihoods)
@@ -195,18 +202,18 @@ class SensorClass
                 std::sort(normHyptLikelihoods.begin(),normHyptLikelihoods.end(), sortbysec);
                 // std::cout << "Hyp No: " hyp.first << "Track: " << hypothesisCombinations[hyp.first]
             }
-            std::cout << "log 7 \n";
+            if(log) std::cout << "log 7 \n";
 
             std::cout << "Highest score Hypt. No: " << normHyptLikelihoods.back().first << " Norm. Likelihood: " << normHyptLikelihoods.back().second <<std::endl;
 
             // std::cout << "Track Size: " << hypothesisCombinations[normHyptLikelihoods.back().first].size() <<std::endl;
-            std::cout << "log 8 \n";
+            if(log) std::cout << "log 8 \n";
 
             // Update KF with highest likelihood measurement
             for (int track = 0; track < hypothesisCombinations[normHyptLikelihoods.back().first].size(); track++)
             {
                 int hypNo = normHyptLikelihoods.back().first;
-                int selectedMeas = hypothesisCombinations[hypNo][track]-1;
+                int selectedMeas = hypothesisCombinations[hypNo][track];
 
                 tracksList[track].increaseCurrentCounter();
 
@@ -220,14 +227,12 @@ class SensorClass
                     ROS_INFO("Track No: %d has been deleted!", tracksList.begin()+track);
                 }
 
-                // Remove used observation
+                // Remove selected observation
                 measurementsList.erase(measurementsList.begin()+selectedMeas);
-                std::cout << "Meas No: " << selectedMeas << " has been removed..."<< measurementsList.size() << " Meas. left." << std::endl;
+                std::cout << "Meas No: " << selectedMeas << " has been removed... "<< measurementsList.size() << " Meas. left." << std::endl;
 
                 tracksList[track].pubPathMessage();
-            }
-
-            
+            }           
             // Add remaining observations as "tentavi tracks" to tracksList
             for(auto measurement : measurementsList)
             {
