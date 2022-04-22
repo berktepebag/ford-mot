@@ -68,34 +68,10 @@ class SensorClass
         std::vector<Eigen::VectorXd> measurementsList;
         GLOBAL_COUNTER++;
 
-        sensorType = "RADAR";
-        if(DEBUG) ROS_INFO("Radar call back");   
-
         for(int col=0;col<10;col++)
         {           
             if(msg->data[col+20] == 0) continue;
-
-            if(DEBUG)
-            {
-                ROS_INFO("Obj: %d \n S_Type: %.0f \n S_No: %.0f \n Obj_Id: %.0f \n  Lon_Dist: %f m \n  Lat_Dist: %f m \n  Lon_Vel: %f m/s \n  Lat_vel: %f m/s \n  w: %f \n  h: %f \n d: %f \n  Time: %.0f:%.0f:%.0f:%.0f ", 
-                col, 
-                msg->data[col],
-                msg->data[col+10],
-                msg->data[col+20],
-                msg->data[col+30],
-                msg->data[col+40],
-                msg->data[col+50],
-                msg->data[col+60],
-                msg->data[col+70],
-                msg->data[col+80],
-                msg->data[col+90],
-                msg->data[col+100],
-                msg->data[col+110],
-                msg->data[col+120],
-                msg->data[col+130]
-                );
-            }
-
+            
             // [x, y, vx, vy]
             radarMeas << 
             msg->data[col+30],
@@ -106,8 +82,6 @@ class SensorClass
             measurementsList.push_back(radarMeas);
         }
 
-        std::cout << "meas size: " << measurementsList.size() << std::endl;
-
         // If there is no track in tracksList
         if(tracksList.size() == 0){
             // Add teach observation as "tentavi tracks" to tracksList
@@ -116,72 +90,40 @@ class SensorClass
             tracksList.emplace_back(Track(TRACK_ID,measurement,GLOBAL_COUNTER));            
             }
         }
-
-
-        std::cout << "Measurement size before gij calc.: " << measurementsList.size() <<"\n";             
-        std::cout << "Track size before gij calc.: " << tracksList.size() <<"\n";             
-
+       
         // Calculate gij(s)
         std::vector<std::vector<float>> gijList; 
         for(auto track : tracksList)
         {
-            std::cout << "----Track ID: " << track.getID() << " Status: " << std::boolalpha << track.trackComfirmed() << "\nCalculating gij...\n";
-            // std::cout << "Meas. List size: " << measurementsList.size() <<"\n";             
-
             gijList.push_back(track.calculateGij(measurementsList));
         }
-        std::cout << "gijList size after gij calc (# of tracks): " << gijList.size() <<"\n";             
 
         std::vector<std::vector<int>> hypothesisCombinations;
         hypothesisCombinations = utilities.hypothesisCombinations(gijList);
 
-        std::cout << "hypothesisCombinations size: " << hypothesisCombinations.size() <<"\n";     
-        utilities.printHypothesis(gijList);
+        // utilities.printHypothesis(gijList);
  
-        if(log) std::cout << "log 4 \n";
-
         if(hypothesisCombinations.size()!=0)
         {
             // Hyp No. and it's calculated likelihood
             std::vector<std::pair<int,float>> hypothesisLikelihoods;
             std::vector<std::pair<int,float>> normHyptLikelihoods;
-            if(log) std::cout << "log 4.1 \n";
 
             //Hypothesis #
             for (int hypo = 0; hypo < hypothesisCombinations.size(); hypo++)
             {
-                if(log) std::cout << "log 4.2 \n";
-
                 float hypLikelihood = 1;
 
-                std::cout << "hypothesisCombinations[hypo] size (#track): " << hypothesisCombinations[hypo].size() <<"\n";    
                 // For each Track
                 for (int track = 0; track < hypothesisCombinations[hypo].size(); track++)
-                {
-                    if(log) std::cout << "log 4.2.1 \n";
-                    if(true){
-                    std::cout 
-                    << "# Hypot.: " << hypo
-                    << "\n# Track: " << track 
-                    << "\n Selected Meas.: " << hypothesisCombinations[hypo][track]
-                    // << "\n Meas Value: " << measurementsList[hypothesisCombinations[hypo][track]-1]
-                    << "\n gij: " << gijList[track][hypo] 
-                    << std::endl;
-                    }                
-                    if(log) std::cout << "log 4.2.2 \n";
+                {                    
                     // Calc. each hypo. likelihood with each tracks gij                
-                    hypLikelihood  *= PD * gijList[track][hypo] * pow(BETA,(track-hypo));
-                    if(log) std::cout << "log 4.2.3 \n";
-
+                    hypLikelihood  *= PD * gijList[track][hypo] * pow(BETA,(measurementsList.size()-tracksList.size()));
                 }      
-                if(log) std::cout << "log 4.3 \n";
-
                 hypothesisLikelihoods.emplace_back(hypo,hypLikelihood);
             }
-            if(log) std::cout << "log 5 \n";
 
             // Calculate normalized hypLikelihoods
-
             // Sum of all hypothesis
             float totalLikelihood = 0;
             for(auto hyp : hypothesisLikelihoods)
@@ -192,23 +134,13 @@ class SensorClass
             for(auto hyp : hypothesisLikelihoods)
             {
                 normHyptLikelihoods.emplace_back(hyp.first,hyp.second/totalLikelihood);
-                std::cout << "Hyp No: "<< hyp.first << " Norm likelihood: " << hyp.second/totalLikelihood << std::endl;
             }
-            if(log) std::cout << "log 6 \n";
-
             // Sort by highest likelihood
             for(auto hyp : normHyptLikelihoods)
             {
                 std::sort(normHyptLikelihoods.begin(),normHyptLikelihoods.end(), sortbysec);
-                // std::cout << "Hyp No: " hyp.first << "Track: " << hypothesisCombinations[hyp.first]
             }
-            if(log) std::cout << "log 7 \n";
-
-            std::cout << "Highest score Hypt. No: " << normHyptLikelihoods.back().first << " Norm. Likelihood: " << normHyptLikelihoods.back().second <<std::endl;
-
-            // std::cout << "Track Size: " << hypothesisCombinations[normHyptLikelihoods.back().first].size() <<std::endl;
-            if(log) std::cout << "log 8 \n";
-
+       
             // Update KF with highest likelihood measurement
             for (int track = 0; track < hypothesisCombinations[normHyptLikelihoods.back().first].size(); track++)
             {
@@ -217,19 +149,16 @@ class SensorClass
 
                 tracksList[track].increaseCurrentCounter();
 
-                // std::cout << "hypNo: " << hypNo << " Track: " << track << " selectedMeas: " << selectedMeas << std::endl;
-                // std::cout << "selected meas: "<< measurementsList[selectedMeas];
+                // Update step of KF with selected measurement
                 tracksList[track].kfUpdate(measurementsList[selectedMeas]);
                 
                 if(tracksList[track].trackMaintenance(GLOBAL_COUNTER))
                 {
                     tracksList.erase(tracksList.begin()+track);
-                    ROS_INFO("Track No: %d has been deleted!", tracksList.begin()+track);
                 }
 
                 // Remove selected observation
                 measurementsList.erase(measurementsList.begin()+selectedMeas);
-                std::cout << "Meas No: " << selectedMeas << " has been removed... "<< measurementsList.size() << " Meas. left." << std::endl;
 
                 tracksList[track].pubPathMessage();
             }           

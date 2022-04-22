@@ -4,18 +4,16 @@
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Dense>
-#include "ford_mot/eigenmvn.h"
 
 #include <ros/ros.h>
 #include <math.h>
 #include <vector>
 
-
 bool DEBUG = false;
 
 Tracking::Tracking()
 {
-    std::cout << "Tracking constructor called \n";
+    if(DEBUG) std::cout << "Tracking constructor called \n";
     ros::NodeHandle nh;
 
     is_initialized_ = false;
@@ -72,7 +70,6 @@ std::vector<float> Tracking::GijCalculation(const std::vector<Eigen::VectorXd> m
     time_diff_ = current_timestamp_ - previous_timestamp_;
     float dt = time_diff_.toSec();
     previous_timestamp_ = current_timestamp_;
-    // ROS_INFO("dt: %.2f",dt);
 
     double dt2_2 = dt * dt / 2;
     
@@ -94,36 +91,21 @@ std::vector<float> Tracking::GijCalculation(const std::vector<Eigen::VectorXd> m
 
     ekf_.Q_ = G * Qv * G.transpose();
 
-    if(DEBUG) ROS_INFO("!!!!!!!!!!!!!!!!!! \n Predicting... \n");
-    ekf_.Predict();
-    if(DEBUG)
-    {
-        std::cout << "x_= " << ekf_.x_ << std::endl;
-        std::cout << "P_= " << ekf_.P_ << std::endl;
-        ROS_INFO("Predict Complete... \n");
-    }
+    ekf_.Predict();   
     
     // // measurement residual covariance matrix
     Eigen::MatrixXd S_ = Eigen::MatrixXd(4,4);
     S_ = ekf_.H_ * ekf_.P_ * ekf_.H_.transpose() + ekf_.R_;    
-    // std::cout << "S_: " << S_ << std::endl;
-
-    std::cout << "Measurement size before INSIDE gij calc.: " << measurements.size() <<"\n";             
-
 
     for (size_t meas = 0; meas < measurements.size(); meas++)
     {
         Eigen::MatrixXd vj = measurements[meas]-(ekf_.H_* ekf_.x_);
         float dij2 = (vj.transpose() * S_.inverse() * vj).value();
-        // std::cout << "dij2: " << dij2 << std::endl;
 
         float gij = exp(-(dij2 / 2)) / ( 2 * M_PI * sqrt(S_.determinant()) );
-        // std::cout << "gij: " << gij << std::endl;     
+
         gijList.push_back(gij); 
     }
-
-    std::cout << "gij size after INSIDE gij calc.: " << gijList.size() <<"\n";             
-
 
     return gijList;
 }
@@ -148,7 +130,6 @@ void Tracking::PublishPathMessage()
     pathMsg.poses.push_back(poseStamped);
 
     posePub.publish(pathMsg);
-
 }
 
 void Tracking::PublishOdom()
